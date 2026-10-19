@@ -1,0 +1,15 @@
+-- TimeManager
+-- Remove teleportation to VoidZone when time is 0
+
+local Players = game:GetService("Players")
+
+Players.PlayerAdded:Connect(function(player)
+    local leaderstats = player:WaitForChild("leaderstats")
+    local timeValue = leaderstats:WaitForChild("Time")
+
+    timeValue.Changed:Connect(function(newValue)
+        if newValue <= 0 then
+        end
+    end)
+end)
+
