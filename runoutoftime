@@ -1,0 +1,98 @@
+local MPS = game:GetService("MarketplaceService")
+local TeleportService = game:GetService("TeleportService")
+local DataStoreService = game:GetService("DataStoreService")
+local VoidZone = workspace:WaitForChild("VoidZone")
+
+local TIME_PRODUCT_ID = 3434163799
+local AMOUNT_OF_TIME_TO_ADD_AFTER_DEV_PURCHASE = 1800 -- 30 mins
+local STARTING_TIME = 600 -- 10 mins for brand new players
+
+local TimerStore = DataStoreService:GetDataStore("VoidTimerStore")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local VoidTimerEvent = ReplicatedStorage:WaitForChild("VoidTimerEvent") -- Kept for Dev Product client clear
+
+game.Players.PlayerAdded:Connect(function(player)
+	local leaderstats = player:WaitForChild("leaderstats")
+	local timeValue = leaderstats:WaitForChild("Time")
+	local savedTimer = 0
+
+	local success, result = pcall(function()
+		return TimerStore:GetAsync(player.UserId)
+	end)
+
+	-- ✅ If no saved data, give new player 10 minutes
+	if success then
+		if result then
+			savedTimer = result
+			timeValue.Value = savedTimer -- load saved time once
+		else
+			timeValue.Value = STARTING_TIME -- brand new player, start with 10 mins
+			print(player.Name .. " is new → starting with " .. STARTING_TIME .. " seconds")
+		end
+	else
+		-- datastore error fallback
+		timeValue.Value = STARTING_TIME
+		warn("DataStore load failed for " .. player.Name .. ", giving default time")
+	end
+
+	-- Countdown system for normal Time
+	task.spawn(function()
+		while player and player.Parent do
+			task.wait(1)
+			if timeValue.Value > 0 then
+				timeValue.Value = timeValue.Value - 0
+			else
+				local char = player.Character
+				if char and char:FindFirstChild("HumanoidRootPart") then
+					char:MoveTo(VoidZone.Position + Vector3.new(0, 5, 0))
+				end
+			end
+		end
+	end)
+
+	-- Save normal Time value (the 'Time' leaderstat) every 10 seconds
+	task.spawn(function()
+		while player and player.Parent do
+			task.wait(1)
+			pcall(function()
+				TimerStore:SetAsync(player.UserId, timeValue.Value)
+			end)
+		end
+	end)
+end)
+
+-- Handle Developer Product Purchase
+MPS.ProcessReceipt = function(receiptInfo)
+	local player = game.Players:GetPlayerByUserId(receiptInfo.PlayerId)
+	if not player then
+		return Enum.ProductPurchaseDecision.NotProcessedYet
+	end
+
+	if receiptInfo.ProductId == TIME_PRODUCT_ID then
+		local leaderstats = player:FindFirstChild("leaderstats")
+		if leaderstats then
+			local timeValue = leaderstats:FindFirstChild("Time")
+			if timeValue then
+				timeValue.Value = timeValue.Value + AMOUNT_OF_TIME_TO_ADD_AFTER_DEV_PURCHASE
+			end
+		end
+
+		-- 🟢 Teleport to random SpawnLocation inside workspace.SpawnLocations
+		local folder = workspace:FindFirstChild("SpawnLocations")
+		if folder then
+			local spawnPoints = folder:GetChildren()
+			if #spawnPoints > 0 then
+				local randomSpawn = spawnPoints[math.random(1, #spawnPoints)]
+				local char = player.Character or player.CharacterAdded:Wait()
+				if char and randomSpawn:IsA("BasePart") then
+					char:MoveTo(randomSpawn.Position + Vector3.new(0, 5, 0))
+				end
+			end
+		end
+
+		-- Removed LoadCharacter() since we just teleport now
+		VoidTimerEvent:FireClient(player, 0)
+	end
+
+	return Enum.ProductPurchaseDecision.PurchaseGranted
+end
