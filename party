@@ -1,0 +1,84 @@
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+
+local player = Players.LocalPlayer
+local partyEvent = ReplicatedStorage:WaitForChild("GlobalPartyEvent")
+
+local partyActive = false
+local colorStep = 0
+
+-- Function to start party effects
+local function startParty()
+	if partyActive then return end
+	partyActive = true
+
+	-- Screen GUI
+	local gui = Instance.new("ScreenGui")
+	gui.Name = "PartyGUI"
+	gui.IgnoreGuiInset = true -- ✅ makes it truly full-screen
+	gui.Parent = player:WaitForChild("PlayerGui")
+
+	local frame = Instance.new("Frame")
+	frame.Size = UDim2.new(1, 0, 1, 0) -- full screen (100% width & height)
+	frame.Position = UDim2.new(0, 0, 0, 0)
+	frame.AnchorPoint = Vector2.new(0, 0)
+	frame.BackgroundColor3 = Color3.new(1, 1, 1) -- base color (will change later)
+	frame.BackgroundTransparency = 0.7 -- slightly see-through light overlay
+	frame.BorderSizePixel = 0 -- removes black border
+	frame.Parent = gui
+
+	-- Color flashing full screen (like before)
+	RunService:BindToRenderStep("PartyColors", Enum.RenderPriority.Camera.Value + 1, function()
+		if not partyActive then return end
+		colorStep = colorStep + 0.01
+		frame.BackgroundColor3 = Color3.fromHSV(colorStep % 1, 1, 1)
+		frame.BackgroundTransparency = 0.7  -- light overlay like before
+	end)
+
+	-- Particles randomly close or far (up to 100 studs)
+	RunService:BindToRenderStep("PartyParticles", Enum.RenderPriority.Camera.Value + 2, function()
+		if not partyActive then return end
+		local particle = Instance.new("Part")
+		particle.Anchored = true
+		particle.CanCollide = false
+		particle.Size = Vector3.new(1,1,1)
+		local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+		if hrp then
+			local distance = math.random() * 100 -- 0 to 100 studs
+			local angleX = math.random() * math.pi * 2
+			local angleY = math.random() * math.pi * 2
+			local offset = Vector3.new(
+				math.cos(angleX) * distance,
+				math.random(2,25),
+				math.sin(angleY) * distance
+			)
+			particle.Position = hrp.Position + offset
+		else
+			particle.Position = Vector3.new(0,5,0)
+		end
+		particle.Color = Color3.fromHSV(math.random(),1,1)
+		particle.Transparency = 0.5
+		particle.Parent = workspace
+		game:GetService("Debris"):AddItem(particle, 1)
+	end)
+end
+
+-- Function to stop party effects
+local function stopParty()
+	partyActive = false
+	if player.PlayerGui:FindFirstChild("PartyGUI") then
+		player.PlayerGui.PartyGUI:Destroy()
+	end
+	RunService:UnbindFromRenderStep("PartyColors")
+	RunService:UnbindFromRenderStep("PartyParticles")
+end
+
+-- Listen for server
+partyEvent.OnClientEvent:Connect(function(active)
+	if active then
+		startParty()
+	else
+		stopParty()
+	end
+end)
