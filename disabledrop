@@ -1,0 +1,31 @@
+-- Prevent dropping any tools
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+
+
+local function makeToolsUndroppable(container)
+	for _, tool in ipairs(container:GetChildren()) do
+		if tool:IsA("Tool") then
+			tool.CanBeDropped = false
+		end
+	end
+end
+
+
+makeToolsUndroppable(player.Backpack)
+
+
+player.Backpack.ChildAdded:Connect(function(child)
+	if child:IsA("Tool") then
+		child.CanBeDropped = false
+	end
+end)
+
+
+player.CharacterAdded:Connect(function(char)
+	char.ChildAdded:Connect(function(child)
+		if child:IsA("Tool") then
+			child.CanBeDropped = false
+		end
+	end)
+end)
