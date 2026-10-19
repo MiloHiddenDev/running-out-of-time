@@ -1,0 +1,176 @@
+-- AdminCommands Script
+-- Place in ServerScriptService
+
+local Players = game:GetService("Players")
+local MessagingService = game:GetService("MessagingService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local AdminUsernames = {"gamerboyysam", "fillipos1111"} -- list of usernames that have admin commands
+
+-- Create RemoteEvents
+local globalMessageEvent = Instance.new("RemoteEvent")
+globalMessageEvent.Name = "GlobalMessageEvent"
+globalMessageEvent.Parent = ReplicatedStorage
+
+local multiplierEvent = Instance.new("RemoteEvent")
+multiplierEvent.Name = "GlobalMultiplierEvent"
+multiplierEvent.Parent = ReplicatedStorage
+
+-- NEW: Party RemoteEvent
+local partyEvent = Instance.new("RemoteEvent")
+partyEvent.Name = "GlobalPartyEvent"
+partyEvent.Parent = ReplicatedStorage
+
+-- Table to track banned players (username as key)
+local bannedPlayers = {}
+
+-- Utility functions
+local function findPlayerByUsername(username)
+	for _, player in ipairs(Players:GetPlayers()) do
+		if player.Name:lower() == username:lower() then
+			return player
+		end
+	end
+	return nil
+end
+
+local function isAdmin(username)
+	username = username:lower()
+	for _, admin in ipairs(AdminUsernames) do
+		if admin:lower() == username then
+			return true
+		end
+	end
+	return false
+end
+
+local function handleCommand(player, message)
+	local args = message:split(" ")
+	local command = args[1]:lower()
+
+	if command == "!addtime" and #args == 3 then
+		local targetPlayer = findPlayerByUsername(args[2])
+		local seconds = tonumber(args[3])
+		if targetPlayer and seconds then
+			local timeValue = targetPlayer:FindFirstChild("leaderstats") and targetPlayer.leaderstats:FindFirstChild("Time")
+			if timeValue then
+				timeValue.Value = timeValue.Value + seconds
+				player:SendNotification({Title = "Admin", Text = "Added "..seconds.." seconds to "..targetPlayer.Name})
+			end
+		end
+
+	elseif command == "!removetime" and #args == 3 then
+		local targetPlayer = findPlayerByUsername(args[2])
+		local seconds = tonumber(args[3])
+		if targetPlayer and seconds then
+			local timeValue = targetPlayer:FindFirstChild("leaderstats") and targetPlayer.leaderstats:FindFirstChild("Time")
+			if timeValue then
+				timeValue.Value = math.max(0, timeValue.Value - seconds)
+				player:SendNotification({Title = "Admin", Text = "Removed "..seconds.." seconds from "..targetPlayer.Name})
+			end
+		end
+
+	elseif command == "!kick" and #args == 2 then
+		local targetPlayer = findPlayerByUsername(args[2])
+		if targetPlayer then
+			targetPlayer:Kick("Kicked by admin")
+		end
+
+	elseif command == "!ban" and #args == 2 then
+		local targetPlayer = findPlayerByUsername(args[2])
+		if targetPlayer then
+			targetPlayer:Kick("Banned by admin")
+		end
+		bannedPlayers[args[2]:lower()] = true
+
+	elseif command == "!unban" and #args == 2 then
+		local username = args[2]:lower()
+		if bannedPlayers[username] then
+			bannedPlayers[username] = nil
+			player:SendNotification({Title = "Admin", Text = username.." has been unbanned"})
+		end
+
+		-- ✅ GLOBAL MESSAGE COMMAND
+	elseif command == "!message" then
+		local text = message:sub(10)
+		if text and text ~= "" then
+			local formatted = ""
+			for i = 1, #text do
+				formatted = formatted .. text:sub(i, i)
+				if i % 28 == 0 then
+					formatted = formatted .. "\n"
+				end
+			end
+
+			MessagingService:PublishAsync("GlobalAnnouncement", {
+				sender = "ThePersianMNC",
+				message = formatted
+			})
+		end
+
+		-- ✅ NEW MULTIPLIER COMMANDS
+	elseif command:match("^!%d+x$") and args[2] == "=" and args[3] == "true" then
+		local multiplier = tonumber(command:match("%d+"))
+		if multiplier then
+			MessagingService:PublishAsync("GlobalMultiplier", {value = multiplier})
+			player:SendNotification({Title = "Admin", Text = "Global "..multiplier.."x time activated!"})
+		end
+
+	elseif command == "!x" and args[2] == "=" and args[3] == "false" then
+		MessagingService:PublishAsync("GlobalMultiplier", {value = 1})
+		player:SendNotification({Title = "Admin", Text = "Time multiplier reset to normal."})
+
+		-- ✅ NEW: PARTY COMMAND
+	elseif command == "!party" and args[2] == "=" then
+		local partyStatus = args[3]:lower() == "true"
+		MessagingService:PublishAsync("GlobalParty", {active = partyStatus})
+		player:SendNotification({Title = "Admin", Text = "Party mode turned "..(partyStatus and "ON" or "OFF")})
+	end
+end
+
+-- Prevent banned players from joining
+Players.PlayerAdded:Connect(function(player)
+	if bannedPlayers[player.Name:lower()] then
+		player:Kick("You are banned from this game")
+		return
+	end
+
+	player.Chatted:Connect(function(message)
+		if isAdmin(player.Name) then
+			handleCommand(player, message)
+		end
+	end)
+end)
+
+-- Listen for global messages
+MessagingService:SubscribeAsync("GlobalAnnouncement", function(data)
+	local info = data.Data
+	if info and info.message and info.sender then
+		for _, player in ipairs(Players:GetPlayers()) do
+			globalMessageEvent:FireClient(player, info.sender, info.message)
+		end
+	end
+end)
+
+-- Listen for multiplier changes
+MessagingService:SubscribeAsync("GlobalMultiplier", function(data)
+	local multiplier = data.Data.value or 1
+	for _, player in ipairs(Players:GetPlayers()) do
+		multiplierEvent:FireClient(player, multiplier)
+	end
+	-- Also store it in ReplicatedStorage for serverscripts
+	local existing = ReplicatedStorage:FindFirstChild("GlobalMultiplierValue")
+	if not existing then
+		existing = Instance.new("NumberValue")
+		existing.Name = "GlobalMultiplierValue"
+		existing.Parent = ReplicatedStorage
+	end
+	existing.Value = multiplier
+end)
+
+-- ✅ NEW: Listen for Party events
+MessagingService:SubscribeAsync("GlobalParty", function(data)
+	local active = data.Data.active
+	for _, player in ipairs(Players:GetPlayers()) do
+		partyEvent:FireClient(player, active)
+	end
+end)
