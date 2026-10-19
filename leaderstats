@@ -1,0 +1,15 @@
+local Players = game:GetService("Players")
+local STARTING_TIME = 0
+
+Players.PlayerAdded:Connect(function(player)
+	-- Create leaderstats folder
+	local leaderstats = Instance.new("Folder")
+	leaderstats.Name = "leaderstats"
+	leaderstats.Parent = player
+
+	-- Create Time IntValue
+	local timeValue = Instance.new("IntValue")
+	timeValue.Name = "Time"
+	timeValue.Value = STARTING_TIME
+	timeValue.Parent = leaderstats
+end)
