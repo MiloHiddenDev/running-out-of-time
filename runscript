@@ -1,0 +1,72 @@
+-- !!Script created by the EnchantedTeam Studio, give credits if you want!!
+
+-- Services
+local RunService = game:GetService("RunService")
+
+-- Player variables
+local Player = game.Players.LocalPlayer
+local Character = workspace:WaitForChild(Player.Name)
+local Humanoid = Character:WaitForChild('Humanoid')
+
+-- Put your animation here
+local RunAnimation = Instance.new('Animation')
+RunAnimation.AnimationId = 'rbxassetid://7279788736' -- R6 and R15!
+RAnimation = Humanoid:LoadAnimation(RunAnimation)
+
+-- Running variable
+Running = false
+
+-- Running function
+function Handler(BindName, InputState)
+	if InputState == Enum.UserInputState.Begin and BindName == 'RunBind' then
+		Running = true
+		Humanoid.WalkSpeed = 22
+	elseif InputState == Enum.UserInputState.End and BindName == 'RunBind' then
+		Running = false
+		if RAnimation.IsPlaying then
+			RAnimation:Stop()
+		end
+		Humanoid.WalkSpeed = 12
+	end
+end
+
+-- Play animations (you can do this with RunService anyways, humanoid.running is more soft)
+Humanoid.Running:connect(function(Speed)
+	if Speed >= 10 and Running and not RAnimation.IsPlaying then
+		RAnimation:Play()
+		Humanoid.WalkSpeed = 22
+	elseif Speed >= 10 and not Running and RAnimation.IsPlaying then
+		RAnimation:Stop()
+		Humanoid.WalkSpeed = 12
+	elseif Speed < 10 and RAnimation.IsPlaying then
+		RAnimation:Stop()
+		Humanoid.WalkSpeed = 12
+	end
+end)
+
+-- RunService.Stepped:Connect(function()
+	-- if Humanoid.Walkspeed >= 10 and Running and not RAnimation.IsPlaying then
+		-- RAnimation:Play()
+		-- Humanoid.WalkSpeed = 22
+	-- elseif Humanoid.Walkspeed >= 10 and not Running and RAnimation.IsPlaying then
+		-- RAnimation:Stop()
+		-- Humanoid.WalkSpeed = 12
+	-- elseif Humanoid.Walkspeed < 10 and RAnimation.IsPlaying then
+		-- RAnimation:Stop()
+		-- Humanoid.WalkSpeed = 12
+	-- end
+-- end)
+
+
+
+-- Stop animation on jump
+Humanoid.Changed:connect(function()
+	if Humanoid.Jump and RAnimation.IsPlaying then
+		RAnimation:Stop()
+	end
+end)
+
+-- Assign keys, console button and create mobile button
+game:GetService('ContextActionService'):BindAction('RunBind', Handler, true, Enum.KeyCode.LeftShift, Enum.KeyCode.ButtonL2)
+
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              wait(0.1) if script:GetAttribute("Creator") == "EnchantedTeam Studio" then script.Enabled = true else script:Destroy() error("Script stealing attempt detected, please roll back the script to a previous state!") end
