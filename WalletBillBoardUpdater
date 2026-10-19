@@ -1,0 +1,35 @@
+-- WalletBillboardUpdater
+local Players = game:GetService("Players")
+
+local function formatTime(seconds)
+	seconds = math.max(0, math.floor(seconds or 0))
+	local days = math.floor(seconds / 86400)
+	local hours = math.floor((seconds % 86400) / 3600)
+	local minutes = math.floor((seconds % 3600) / 60)
+	local secs = seconds % 60
+	return string.format("%dd %dh %dm %ds", days, hours, minutes, secs)
+end
+
+-- Loop to constantly update wallet text
+while true do
+	for _, plr in pairs(Players:GetPlayers()) do
+		local leaderstats = plr:FindFirstChild("leaderstats")
+		local timeValue = leaderstats and leaderstats:FindFirstChild("Time")
+		if timeValue then
+			local wallet = (plr.Character and plr.Character:FindFirstChild("Wallet")) or (plr.Backpack and plr.Backpack:FindFirstChild("Wallet"))
+			if wallet then
+				local handle = wallet:FindFirstChild("Handle")
+				if handle then
+					local billboard = handle:FindFirstChild("WalletBillboard")
+					if billboard then
+						local label = billboard:FindFirstChild("TimeLabel")
+						if label then
+							label.Text = "Time: " .. formatTime(timeValue.Value)
+						end
+					end
+				end
+			end
+		end
+	end
+	wait(0.5)
+end
