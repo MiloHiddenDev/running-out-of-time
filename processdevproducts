@@ -1,0 +1,138 @@
+local Players = game:GetService("Players")
+local MarketplaceService = game:GetService("MarketplaceService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerStorage = game:GetService("ServerStorage")
+local DataStoreService = game:GetService("DataStoreService")
+
+-- RemoteEvent to give items from LocalScript
+local GiveItemEvent = Instance.new("RemoteEvent")
+GiveItemEvent.Name = "GiveItem"
+GiveItemEvent.Parent = ReplicatedStorage
+
+local InventoryStore = DataStoreService:GetDataStore("PlayerInventory")
+
+-- Gamepass items mapping
+local GamepassItems = {
+	SpeedCoil = "SpeedCoil",
+	GravityCoil = "GravityCoil",
+	MagicCarpet = "MagicCarpet"
+}
+
+-- DevProducts mapping
+local DevProducts = {
+	[3435101688] = {Type = "Time", Amount = 600},
+	[3435102564] = {Type = "Time", Amount = 3600},
+	[3435104514] = {Type = "Time", Amount = 18000},
+	[3435104654] = {Type = "Time", Amount = 86400},
+	[3435105285] = {Type = "Time", Amount = 259200},
+	[3435106361] = {Type = "KillAll"}
+}
+
+-- Helper function: give tool to player
+local function giveItem(player, itemName)
+	local tool = ServerStorage:FindFirstChild(itemName)
+	if tool then
+		local clone = tool:Clone()
+		clone.Parent = player:WaitForChild("Backpack")
+	end
+end
+
+-- Load saved inventory (leaderstats creation removed)
+Players.PlayerAdded:Connect(function(player)
+	local success, data = pcall(function()
+		return InventoryStore:GetAsync(player.UserId)
+	end)
+	if success and data then
+		for _, itemName in ipairs(data) do
+			giveItem(player, itemName)
+		end
+	end
+end)
+
+-- Save inventory on leave
+Players.PlayerRemoving:Connect(function(player)
+	local backpack = player:FindFirstChild("Backpack")
+	if backpack then
+		local items = {}
+		for _, tool in ipairs(backpack:GetChildren()) do
+			table.insert(items, tool.Name)
+		end
+		pcall(function()
+			InventoryStore:SetAsync(player.UserId, items)
+		end)
+	end
+end)
+
+-- Give item from LocalScript (gamepass)
+GiveItemEvent.OnServerEvent:Connect(function(player, itemName)
+	if GamepassItems[itemName] then
+		giveItem(player, itemName)
+
+		-- Save in DataStore so it persists forever
+		local success, data = pcall(function()
+			return InventoryStore:GetAsync(player.UserId)
+		end)
+		data = data or {}
+		if not table.find(data, itemName) then
+			table.insert(data, itemName)
+			pcall(function()
+				InventoryStore:SetAsync(player.UserId, data)
+			end)
+		end
+	end
+end)
+
+-- Automatically give gamepass items if player owns them
+Players.PlayerAdded:Connect(function(player)
+	for itemName, _ in pairs(GamepassItems) do
+		local success, ownsPass = pcall(function()
+			return MarketplaceService:UserOwnsGamePassAsync(player.UserId, itemName)
+		end)
+		if success and ownsPass then
+			-- Ensure it’s in inventory and DataStore
+			local data = {}
+			local dsSuccess, savedData = pcall(function()
+				return InventoryStore:GetAsync(player.UserId)
+			end)
+			if dsSuccess and savedData then
+				data = savedData
+			end
+			if not table.find(data, itemName) then
+				table.insert(data, itemName)
+				pcall(function()
+					InventoryStore:SetAsync(player.UserId, data)
+				end)
+			end
+			giveItem(player, itemName)
+		end
+	end
+end)
+
+-- DevProducts ProcessReceipt
+MarketplaceService.ProcessReceipt = function(receiptInfo)
+	local player = Players:GetPlayerByUserId(receiptInfo.PlayerId)
+	if not player then
+		return Enum.ProductPurchaseDecision.NotProcessedYet
+	end
+
+	local product = DevProducts[receiptInfo.ProductId]
+	if not product then
+		return Enum.ProductPurchaseDecision.NotProcessedYet
+	end
+
+	if product.Type == "Time" then
+		local leaderstats = player:FindFirstChild("leaderstats") or player:WaitForChild("leaderstats", 5)
+		local timeVal = leaderstats and (leaderstats:FindFirstChild("Time") or leaderstats:WaitForChild("Time", 5))
+		if timeVal then
+			timeVal.Value += product.Amount
+		end
+	elseif product.Type == "KillAll" then
+		for _, p in pairs(Players:GetPlayers()) do
+			if p.Character and p.Character:FindFirstChild("Humanoid") then
+				p.Character.Humanoid.Health = 0
+			end
+		end
+	end
+
+	return Enum.ProductPurchaseDecision.PurchaseGranted
+end
