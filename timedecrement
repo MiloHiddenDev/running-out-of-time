@@ -1,0 +1,16 @@
+local Players = game:GetService("Players")
+
+Players.PlayerAdded:Connect(function(player)
+	local leaderstats = player:WaitForChild("leaderstats")
+	local timeValue = leaderstats:WaitForChild("Time")
+
+	-- Only one timer loop per player
+	spawn(function()
+		while player.Parent do
+			if timeValue.Value > 0 then
+				timeValue.Value = timeValue.Value - 1
+			end
+			wait(1) -- exactly 1 second per tick
+		end
+	end)
+end)
