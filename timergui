@@ -1,0 +1,60 @@
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+local VoidTimerEvent = ReplicatedStorage:WaitForChild("VoidTimerEvent")
+
+-- Create GUI (Kept to prevent script errors from removal, but it will never show a timer)
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "VoidTimerGui"
+screenGui.Parent = player:WaitForChild("PlayerGui")
+
+local timerLabel = Instance.new("TextLabel")
+timerLabel.Size = UDim2.new(0, 300, 0, 50)
+timerLabel.Position = UDim2.new(0.5, 0, 0, 10) -- Top center
+timerLabel.AnchorPoint = Vector2.new(0.5, 0) -- Anchor middle top
+timerLabel.TextScaled = true
+timerLabel.BackgroundTransparency = 0.5
+timerLabel.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+timerLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+timerLabel.Visible = false -- Hide by default
+timerLabel.Parent = screenGui
+
+local currentTimer = 0
+local timerActive = false
+
+-- Function to update label text
+local function updateTimerLabel()
+	-- This function will now essentially do nothing as the timer will always be 0
+	if currentTimer > 0 then
+		local mins = math.floor(currentTimer / 60)
+		local secs = currentTimer % 60
+		timerLabel.Text = string.format("Respawn Time Left: %02d:%02d", mins, secs)
+		timerLabel.Visible = true
+	else
+		timerLabel.Text = ""
+		timerLabel.Visible = false
+	end
+end
+
+-- Countdown loop (Now useless, but kept for consistency)
+task.spawn(function()
+	while true do
+		task.wait(1)
+		if timerActive and currentTimer > 0 then
+			currentTimer -= 1
+			if currentTimer <= 0 then
+				currentTimer = 0
+				timerActive = false
+			end
+			updateTimerLabel()
+		end
+	end
+end)
+
+-- Receive timer from server (Now only used to clear the GUI after purchase)
+VoidTimerEvent.OnClientEvent:Connect(function(time)
+	-- The server will only fire this with time = 0 on purchase
+	currentTimer = 0
+	timerActive = false
+	updateTimerLabel()
+end)
