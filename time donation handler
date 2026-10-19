@@ -1,0 +1,30 @@
+-- TimeDonationHandler
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local DonateTimeEvent = ReplicatedStorage:WaitForChild("DonateTimeEvent")
+
+DonateTimeEvent.OnServerEvent:Connect(function(sender, receiver, amount)
+	if typeof(amount) ~= "number" then return end
+	if not sender or not receiver then return end
+	if sender == receiver then return end
+
+	local sStats = sender:FindFirstChild("leaderstats")
+	local rStats = receiver:FindFirstChild("leaderstats")
+	if not sStats or not rStats then return end
+
+	local sTime = sStats:FindFirstChild("Time")
+	local rTime = rStats:FindFirstChild("Time")
+	if not sTime or not rTime then return end
+
+	if amount <= 0 or sTime.Value < amount then
+		DonateTimeEvent:FireClient(sender, "Error", 0, "Not enough time.")
+		return
+	end
+
+	local donatedAmount = math.floor(amount * 0.75)
+
+	sTime.Value -= amount
+	rTime.Value += donatedAmount
+
+	DonateTimeEvent:FireClient(sender, "Sent", donatedAmount, receiver.Name)
+	DonateTimeEvent:FireClient(receiver, "Received", donatedAmount, sender.Name)
+end)
